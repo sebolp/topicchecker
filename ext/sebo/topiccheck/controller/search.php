@@ -83,7 +83,7 @@ class search
 		try
 		{
 			// Load common lang file for error messages
-			$this->user->add_lang_ext('sebo/topiccheck', 'common');
+			$this->language->add_lang('common', 'sebo/topiccheck');
 
 			$search_query = $this->request->variable('q', '', true);
 			$search_query = trim((string) $search_query);
@@ -117,6 +117,7 @@ class search
 
 				$sql = $this->db->sql_build_query('SELECT', $sql_ary);
 				$result = $this->db->sql_query($sql);
+				$active_forum_ids = [];
 				while ($row = $this->db->sql_fetchrow($result))
 				{
 					$active_forum_ids[] = (int) $row['forum_id'];
@@ -203,7 +204,7 @@ class search
 					}
 
 					$sql_ary = [
-						'SELECT'	=> 't.topic_id, t.topic_title, t.topic_time, t.forum_id, f.forum_name, f.left_id, f.right_id',
+						'SELECT'	=> 't.topic_id, t.topic_title, t.topic_time, t.topic_last_post_time, t.forum_id, f.forum_name, f.left_id, f.right_id',
 						'FROM'		=> [
 							$this->table_prefix . 'topics' => 't',
 						],
@@ -249,35 +250,31 @@ class search
 						$breadcrumbs_html .= '<span class="crumb" style="font-weight: normal;">' . $row['forum_name'] . '</span>';
 
 						// URL
-						$url = '';
-						$route_names = ['phpbb_viewtopic_controller', 'phpbb_viewtopic_route', 'viewtopic'];
-
-						foreach ($route_names as $route_name)
+						try
 						{
-							try
-							{
-								$url = $this->helper->route($route_name, [
-									'f' => $forum_id,
-									't' => $topic_id
-								]);
-								break;
-							}
-							catch (\Exception $e)
-							{
-								continue;
-							}
+							$url = $this->helper->route('phpbb_viewtopic_route', [
+								'f' => $forum_id,
+								't' => $topic_id,
+							]);
+						}
+						catch (\Exception $e)
+						{
+							// security Fallback
+							$url = append_sid($this->phpbb_root_path . 'viewtopic.' . $this->php_ext, [
+								'f' => $forum_id,
+								't' => $topic_id,
+							]);
 						}
 
-						if (empty($url))
-						{
-							$url = './viewtopic.' . $this->php_ext . '?f=' . $forum_id . '&t=' . $topic_id;
-						}
-
+						$time_threshold = time() - 31536000; // Current time minus 1 year (in seconds)
+						// old topic if last post time is older than 1 year
 						$results[] = [
 							'topic_id'    => $topic_id,
 							'title'       => $row['topic_title'],
 							'breadcrumbs' => $breadcrumbs_html,
 							'url'         => $url,
+							'old'			=> ((int) $row['topic_last_post_time'] < $time_threshold) ? true : false,
+							'oldtext'		=> $this->language->lang('SEBO_TOPICCHECK_OLDER_THAN_YEAR'),
 						];
 					}
 					$this->db->sql_freeresult($result);

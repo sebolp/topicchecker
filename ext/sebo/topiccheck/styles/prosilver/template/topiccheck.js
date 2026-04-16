@@ -75,9 +75,12 @@
 								// 3. ONLY Icon
 								var openText = '<i class="icon fa-external-link fa-fw tc-external-link-icon" aria-hidden="true"></i>';
 
+								// Determine if the "old" icon should be displayed
+								var oldIcon = (item.old) ? ' <strong class="badge older" data-tooltip="' + item.oldtext + '"><i class="fa fa-spin fa-hourglass-end" aria-hidden="true"></i></strong>' : '';
+
 								var li = '<li>' +
 									'<a href="' + item.url + '" target="_blank" class="topic-check-link">' +
-									'<span class="topic-check-title-container">' + fullDisplay + '</span>' +
+									'<span class="topic-check-title-container">' + fullDisplay + oldIcon + '</span>' +
 									'<span class="topic-check-open-text">' + openText + '</span>' +
 									'</a></li>';
 

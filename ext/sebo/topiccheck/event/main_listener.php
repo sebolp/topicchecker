@@ -12,10 +12,8 @@
 namespace sebo\topiccheck\event;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use phpbb\request\request_interface;
 
-/**
- * Main listener class
- */
 class main_listener implements EventSubscriberInterface
 {
 	/** @var \phpbb\template\template */
@@ -24,28 +22,20 @@ class main_listener implements EventSubscriberInterface
 	/** @var \phpbb\controller\helper */
 	protected $helper;
 
-	/** @var \phpbb\user */
-	protected $user;
+	/** @var request_interface */
+	protected $request;
 
-	/**
-	 * Constructor
-	 *
-	 * @param \phpbb\template\template	$template
-	 * @param \phpbb\controller\helper	$helper
-	 * @param \phpbb\user				$user
-	 */
-	public function __construct(\phpbb\template\template $template, \phpbb\controller\helper $helper, \phpbb\user $user)
+	public function __construct(
+		\phpbb\template\template $template,
+		\phpbb\controller\helper $helper,
+		request_interface $request
+	)
 	{
 		$this->template = $template;
-		$this->helper = $helper;
-		$this->user = $user;
+		$this->helper   = $helper;
+		$this->request  = $request;
 	}
 
-	/**
-	 * Assign functions defined in this class to event listeners in the core
-	 *
-	 * @return array
-	 */
 	public static function getSubscribedEvents()
 	{
 		return [
@@ -53,16 +43,13 @@ class main_listener implements EventSubscriberInterface
 		];
 	}
 
-	/**
-	 * Add the search route URL to the template variables
-	 *
-	 * @param \phpbb\event\data $event The event object
-	 * @return void
-	 */
 	public function add_search_url_variable($event)
 	{
-		// Only load this variable if we are in posting mode
-		if ($this->user->page['page_name'] == 'posting.php')
+		// check if in posting.php with REQUEST_URI
+		$script_name = $this->request->server('PHP_SELF', '');
+		$is_posting  = (substr($script_name, -11) === 'posting.php');
+
+		if ($is_posting)
 		{
 			$this->template->assign_vars([
 				'U_SEBO_TOPIC_SEARCH' => $this->helper->route('sebo_topiccheck_search'),

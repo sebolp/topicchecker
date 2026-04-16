@@ -4,11 +4,11 @@
 <h1>{{ lang('ACP_TOPICCHECK_WORDS_TITLE') }}</h1>
 
 {% if TOPICCHECK_LANGUAGE_MISSING or TOPICCHECK_YOUR_LANGUAGE_MISSING %}
-    <div class="errorbox">
-        <h3>{{ lang('WARNING') }}</h3>
-        {% if TOPICCHECK_LANGUAGE_MISSING %}<p>{{ lang('TOPICCHECK_LANGUAGE_MISSING_EXPLAIN') }}</p>{% endif %}
+	<div class="errorbox">
+		<h3>{{ lang('WARNING') }}</h3>
+		{% if TOPICCHECK_LANGUAGE_MISSING %}<p>{{ lang('TOPICCHECK_LANGUAGE_MISSING_EXPLAIN') }}</p>{% endif %}
 		{% if TOPICCHECK_YOUR_LANGUAGE_MISSING %}<p>{{ lang('TOPICCHECK_YOUR_LANGUAGE_MISSING_EXPLAIN') }}</p>{% endif %}
-    </div>
+	</div>
 {% endif %}
 
 <fieldset>

@@ -139,6 +139,8 @@
 .topic-check-title-container {
 	flex: 1;
 	padding-right: 10px;
+	display: flex;
+	align-items: center;
 }
 
 /* Container for the icon (Right side) */
@@ -166,4 +168,60 @@
 	font-weight: bold;
 	padding: 0 0.5em;
 	color: #555;
+}
+
+.badge.older {
+	background-color: #e0880c; /* Orange color for "older" badge */
+	color: #fff;
+	top: 0px !important;
+	display: inline-flex;
+	margin-left: 10px;
+	position: relative;/* Container must be relative for the tooltip positioning */
+	cursor: help;
+
+}
+/* The Tooltip Box */
+.badge.older:hover::after
+{
+	content: attr(data-tooltip); /* Pulls text from the data-tooltip attribute */
+	position: absolute;
+	bottom: 30px;          /* Position above the badge */
+	left: 50%;
+	transform: translateX(-50%);
+	background-color: #333;
+	color: #fff;
+	padding: 5px 10px;
+	border-radius: 4px;
+	font-size: 11px;
+	white-space: nowrap;   /* Prevents text from wrapping */
+	z-index: 9999;
+	box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+	pointer-events: none;  /* Prevents the tooltip from flickering */
+}
+
+/* The Tooltip Arrow */
+.badge.older:hover::before
+{
+	content: '';
+	position: absolute;
+	bottom: 18px;          /* Just below the tooltip box */
+	left: 50%;
+	transform: translateX(-50%);
+	border-width: 6px;
+	border-style: solid;
+	border-color: #333 transparent transparent transparent;
+	z-index: 9999;
+}
+#sebo-topic-check-list li:first-child .badge.older:hover::after
+{
+	bottom: -2px;
+    left: 180px;
+}
+
+#sebo-topic-check-list li:first-child .badge.older:hover::before
+{
+	bottom: auto;
+	left: 30px;
+    transform: rotate(270deg);
+	border-color: transparent transparent #333 transparent; /* Points the arrow UP */
 }

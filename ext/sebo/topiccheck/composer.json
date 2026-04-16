@@ -3,15 +3,15 @@
 	"type": "phpbb-extension",
 	"description": "Live search for similar topics in subject inbox in posting page to prevent duplicates.",
 	"homepage": "https://www.fiatpandaclub.org",
-	"version": "1.1.0",
-	"time": "2026-01-30",
-	"license": "GPL-2.0",
+	"version": "1.2.0",
+	"time": "2026-04-16",
+	"license": "GPL-2.0-only",
 	"authors": [
 		{
-            "name": "sebo",
-            "email": "info@fiatpandaclub.org",
-            "homepage": "https://www.fiatpandaclub.org",
-            "role": "https://www.phpbb.com/community/memberlist.php?mode=viewprofile&u=2233051"
+			"name": "sebo",
+			"email": "info@fiatpandaclub.org",
+			"homepage": "https://www.fiatpandaclub.org",
+			"role": "https://www.phpbb.com/community/memberlist.php?mode=viewprofile&u=2233051"
 		}
 	],
 	"require": {

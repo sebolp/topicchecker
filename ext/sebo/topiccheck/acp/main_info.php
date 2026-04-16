@@ -19,7 +19,7 @@ class main_info
 	public function module()
 	{
 		return [
-			'filename' => '\sebo\topiccheck\acp\settings_module',
+			'filename' => '\sebo\topiccheck\acp\main_module',
 			'title'    => 'ACP_TOPICCHECK_TITLE',
 			'modes'    => [
 				'settings' => [

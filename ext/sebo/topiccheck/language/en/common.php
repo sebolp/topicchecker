@@ -22,4 +22,6 @@ if (empty($lang) || !is_array($lang))
 $lang = array_merge($lang, [
 	/* >1.0.0 */
 	'SEBO_TOPICCHECK_ERROR_MESSAGE' => 'An error occurred:',
+	/* >1.2.0 */
+	'SEBO_TOPICCHECK_OLDER_THAN_YEAR' => 'Last post published more than a year ago',
 ]);
