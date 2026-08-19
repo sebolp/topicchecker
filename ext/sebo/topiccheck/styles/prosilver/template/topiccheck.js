@@ -45,46 +45,134 @@
 						{
 							$.each(data, function(i, item)
 							{
-								// 1. Highlight Logic (Multi-word)
-								// Split input query by spaces to find individual words
+								// 1. Highlight logic (multi-word)
 								var words = query.split(/\s+/).filter(function(w)
 								{
 									return w.length > 0;
 								});
 
-								// Escape special regex chars for each word
 								var escapedWords = $.map(words, function(w)
 								{
 									return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 								});
 
-								// Create a regex that matches ANY of the words (OR logic) for highlighting
-								// Example: (ancora|new)
 								var pattern = '(' + escapedWords.join('|') + ')';
 								var regex = new RegExp(pattern, 'gi');
 
-								// Apply red color to ALL matched words
-								var titleHighlighted = item.title.replace(regex, '<span style="color:#D31141">$1</span>');
+								// 2. Create DOM elements
+								var $li = $('<li>');
+								var $link = $('<a>', {
+									href: item.url,
+									target: '_blank',
+									rel: 'noopener noreferrer',
+									class: 'tc-link'
+								});
 
-								// 2. Breadcrumbs + Title
-								var fullDisplay = '<span class="breadcrumbs">' +
-									item.breadcrumbs +
-									'<span class="crumb" style="font-weight: bold;">' + titleHighlighted + '</span>' +
-									'</span>';
+								var $titleContainer = $('<span>', {
+									class: 'tc-title-container'
+								});
 
-								// 3. ONLY Icon
-								var openText = '<i class="icon fa-external-link fa-fw tc-external-link-icon" aria-hidden="true"></i>';
+								var $fullDisplay = $('<span>', {
+									class: 'tc-breadcrumbs'
+								});
 
-								// Determine if the "old" icon should be displayed
-								var oldIcon = (item.old) ? ' <strong class="badge older" data-tooltip="' + item.oldtext + '"><i class="fa fa-spin fa-hourglass-end" aria-hidden="true"></i></strong>' : '';
+								// Home icon, prepended before the forum path
+								$('<i>', {
+									class: 'icon fa-home fa-fw',
+									'aria-hidden': 'true'
+								}).appendTo($fullDisplay);
 
-								var li = '<li>' +
-									'<a href="' + item.url + '" target="_blank" class="topic-check-link">' +
-									'<span class="topic-check-title-container">' + fullDisplay + oldIcon + '</span>' +
-									'<span class="topic-check-open-text">' + openText + '</span>' +
-									'</a></li>';
+								// 3. Breadcrumbs
+								$.each(item.breadcrumbs, function(index, crumb)
+								{
+									$('<span>', {
+										class: 'tc-crumb'
+									})
+										.css('font-weight', 'normal')
+										.text(crumb)
+										.appendTo($fullDisplay);
+								});
 
-								$list.append(li);
+								// 4. Topic title
+								var $title = $('<span>', {
+									class: 'tc-crumb'
+								}).css('font-weight', 'bold');
+
+								var lastIndex = 0;
+								var match;
+
+								regex.lastIndex = 0;
+
+								while ((match = regex.exec(item.title)) !== null)
+								{
+									if (match.index > lastIndex)
+									{
+										$title.append(
+											document.createTextNode(
+												item.title.substring(lastIndex, match.index)
+											)
+										);
+									}
+
+									$('<span>')
+										.css('color', '#D31141')
+										.text(match[0])
+										.appendTo($title);
+
+									lastIndex = match.index + match[0].length;
+
+									if (match[0].length === 0)
+									{
+										regex.lastIndex++;
+									}
+								}
+
+								if (lastIndex < item.title.length)
+								{
+									$title.append(
+										document.createTextNode(
+											item.title.substring(lastIndex)
+										)
+									);
+								}
+
+								$title.appendTo($fullDisplay);
+
+								// 5. Older topic indicator
+								if (item.old)
+								{
+									$('<strong>', {
+										class: 'tc-badge-older'
+									})
+										.attr('data-tooltip', item.oldtext)
+										.append(
+											$('<i>', {
+												class: 'fa fa-spin fa-hourglass-end',
+												'aria-hidden': 'true'
+											})
+										)
+										.appendTo($titleContainer);
+								}
+
+								// 6. Assemble title area
+								$titleContainer.prepend($fullDisplay);
+
+								// 7. External link icon
+								var $openText = $('<span>', {
+									class: 'tc-open-text'
+								});
+
+								$('<i>', {
+									class: 'icon fa-external-link fa-fw tc-external-link-icon',
+									'aria-hidden': 'true'
+								}).appendTo($openText);
+
+								$link
+									.append($titleContainer)
+									.append($openText);
+
+								$li.append($link);
+								$list.append($li);
 							});
 
 							$container.show();
@@ -96,7 +184,7 @@
 					},
 					error: function(xhr, status, error)
 					{
-						console.error("AJAX Error:", error);
+						console.error('AJAX Error:', error);
 					}
 				});
 			}, 300);
@@ -105,7 +193,7 @@
 		// Close dropdown when clicking outside
 		$(document).on('click', function(e)
 		{
-			if (!$(e.target).closest('#sebo-topic-check-wrapper').length && !$(e.target).is('#subject'))
+			if (!$(e.target).closest('#sebo-topic-check-container').length && !$(e.target).is('#subject'))
 			{
 				$container.hide();
 			}

@@ -15,7 +15,7 @@
 	<legend>{{ lang('PP_ME_PR') }}</legend>
 	<dl>
 		<dt>
-			{{ lang('PP_ME_EXT_PR', LINK_DONATE) }}
+			{{ lang('PP_ME_EXT_TC', LINK_DONATE) }}
 		</dt>
 		<dd>
 			<img src="../ext/sebo/topiccheck/adm/style/wink_beer.png" width="32" height="32" alt="">
@@ -278,7 +278,9 @@
 			<dt><label for="lang_iso">{{ lang('LANGUAGE') }}:</label></dt>
 			<dd>
 				<select name="lang_iso" id="lang_iso" onchange="document.getElementById('acp_topiccheck_words').submit();">
-					{{ S_LANG_OPTIONS }}
+					{% for lang in TOPICCHECK_LANGS %}
+						<option value="{{ lang.ISO }}"{% if lang.SELECTED %} selected="selected"{% endif %}>{{ lang.NAME }}</option>
+					{% endfor %}
 				</select>
 				<noscript><input type="submit" name="change_lang" value="{{ lang('GO') }}" /></noscript>
 			</dd>
@@ -289,7 +291,7 @@
 				<span>{{ lang('ACP_TOPICCHECK_WORDS_EXPLAIN_TEXTAREA') }}</span>
 			</dt>
 			<dd>
-				<textarea name="words_list" id="words_list" rows="10" cols="80" style="width: 95%;">{{ WORDS_LIST }}</textarea>
+				<textarea name="words_list" id="words_list" rows="10" cols="80" style="width: 95%;">{{ WORDS_LIST|e }}</textarea>
 			</dd>
 		</dl>
 	</fieldset>

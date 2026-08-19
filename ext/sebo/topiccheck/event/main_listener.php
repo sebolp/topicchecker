@@ -12,7 +12,7 @@
 namespace sebo\topiccheck\event;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use phpbb\request\request_interface;
+use phpbb\user;
 
 class main_listener implements EventSubscriberInterface
 {
@@ -22,18 +22,18 @@ class main_listener implements EventSubscriberInterface
 	/** @var \phpbb\controller\helper */
 	protected $helper;
 
-	/** @var request_interface */
-	protected $request;
+	/** @var user */
+	protected $user;
 
 	public function __construct(
 		\phpbb\template\template $template,
 		\phpbb\controller\helper $helper,
-		request_interface $request
+		user $user
 	)
 	{
 		$this->template = $template;
 		$this->helper   = $helper;
-		$this->request  = $request;
+		$this->user     = $user;
 	}
 
 	public static function getSubscribedEvents()
@@ -45,9 +45,8 @@ class main_listener implements EventSubscriberInterface
 
 	public function add_search_url_variable($event)
 	{
-		// check if in posting.php with REQUEST_URI
-		$script_name = $this->request->server('PHP_SELF', '');
-		$is_posting  = (substr($script_name, -11) === 'posting.php');
+		// Check if we are on posting.php using phpBB's own page tracking
+		$is_posting = ($this->user->page['page_name'] === 'posting.php');
 
 		if ($is_posting)
 		{

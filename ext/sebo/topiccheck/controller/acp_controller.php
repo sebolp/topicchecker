@@ -11,6 +11,8 @@
 
 namespace sebo\topiccheck\controller;
 
+use phpbb\request\request_interface;
+
 /**
  * TopicCheck ACP controller.
  */
@@ -26,7 +28,7 @@ class acp_controller
 
 	public function __construct(
 		\phpbb\language\language $language,
-		\phpbb\request\request $request,
+		request_interface $request,
 		\phpbb\template\template $template,
 		\phpbb\user $user,
 		$table_prefix,
@@ -50,7 +52,7 @@ class acp_controller
 	{
 		$this->language->add_lang('info_acp_module', 'sebo/topiccheck');
 
-		// Assegna il link donazione globale per tutti i template
+		// Assign the global donation link for all templates
 		$this->template->assign_var('LINK_DONATE', 'https://www.paypal.com/donate/?hosted_button_id=GS3T9MFDJJGT4');
 
 		// ---------------------------------------------------------------------
@@ -58,25 +60,22 @@ class acp_controller
 		// ---------------------------------------------------------------------
 		if ($mode == 'settings')
 		{
-			// 1. Genera la chiave di sicurezza
+			// 1. Generate sec key
 			add_form_key('acp_topiccheck_settings');
 
 			if ($this->request->is_set_post('submit'))
 			{
-				// 2. Controlla la chiave (CORRETTO: usa check_form_key, non check_link_hash)
+				// 2. Check key
 				if (!check_form_key('acp_topiccheck_settings'))
 				{
 					trigger_error($this->language->lang('FORM_INVALID') . adm_back_link($this->u_action), E_USER_WARNING);
 				}
 
-				// 3. Recupera l'array dei forum selezionati
 				$selected_forums = $this->request->variable('forum_ids', [0]);
 
-				// 4. Pulisci la tabella
 				$sql = 'DELETE FROM ' . $this->table_prefix . 'sebo_topiccheck_forums';
 				$this->db->sql_query($sql);
 
-				// 5. Inserisci i nuovi dati (se ce ne sono)
 				if (!empty($selected_forums))
 				{
 					$sql_ary = [];
@@ -93,12 +92,22 @@ class acp_controller
 				trigger_error($this->language->lang('ACP_TOPICCHECK_SETTINGS_SAVED') . adm_back_link($this->u_action));
 			}
 
-			// Logica visualizzazione forum
-			$sql = 'SELECT f.forum_id, f.forum_name, f.parent_id, f.left_id, tf.active
-					FROM ' . FORUMS_TABLE . ' f
-					LEFT JOIN ' . $this->table_prefix . 'sebo_topiccheck_forums tf ON f.forum_id = tf.forum_id
-					ORDER BY f.left_id ASC';
+			// view forum logic
+			$sql_ary = [
+				'SELECT'	=> 'f.forum_id, f.forum_name, f.parent_id, f.left_id, tf.active',
+				'FROM'		=> [
+					FORUMS_TABLE => 'f',
+				],
+				'LEFT_JOIN'	=> [
+					[
+						'FROM'	=> [$this->table_prefix . 'sebo_topiccheck_forums' => 'tf'],
+						'ON'	=> 'f.forum_id = tf.forum_id',
+					],
+				],
+				'ORDER_BY'	=> 'f.left_id ASC',
+			];
 
+			$sql = $this->db->sql_build_query('SELECT', $sql_ary);
 			$result = $this->db->sql_query($sql);
 
 			while ($row = $this->db->sql_fetchrow($result))
@@ -120,7 +129,7 @@ class acp_controller
 		// ---------------------------------------------------------------------
 		// MODE: WORDS
 		// ---------------------------------------------------------------------
-		else if ($mode == 'words')
+		elseif ($mode == 'words')
 		{
 			// 1. Generate the form key (shared for both forms on this page)
 			add_form_key('acp_topiccheck_words');
@@ -144,23 +153,24 @@ class acp_controller
 					trigger_error($this->language->lang('NO_LANGUAGE_SELECTED') . adm_back_link($this->u_action), E_USER_WARNING);
 				}
 
-				// Validate: Check if language already exists in the database
+				// Validate: the submitted ISO code must match an actually installed
+				// phpBB language pack (whitelist against the lang table), not just
+				// a free-form string coming from POST
 				$sql_ary = [
 					'SELECT'	=> 'lang_iso',
 					'FROM'		=> [
-						$this->table_prefix . 'sebo_topiccheck_words' => 'stw',
+						LANG_TABLE => 'l',
 					],
 					'WHERE'		=> "lang_iso = '" . $this->db->sql_escape($new_lang_iso) . "'",
 				];
 				$sql = $this->db->sql_build_query('SELECT', $sql_ary);
 				$result = $this->db->sql_query($sql);
-				$exists = $this->db->sql_fetchrow($result);
+				$is_installed_lang = $this->db->sql_fetchrow($result);
 				$this->db->sql_freeresult($result);
 
-				if ($exists)
+				if (!$is_installed_lang)
 				{
-					// Language already exists, warn the user
-					trigger_error($this->language->lang('LANGUAGE_ALREADY_EXISTS') . adm_back_link($this->u_action), E_USER_WARNING);
+					trigger_error($this->language->lang('NO_LANGUAGE_SELECTED') . adm_back_link($this->u_action), E_USER_WARNING);
 				}
 
 				// Insert the new language with an empty word list
@@ -256,18 +266,20 @@ class acp_controller
 				]);
 			}
 			// Check if the user's current language is not in the available list
-			else if (!in_array($current_lang, $available_langs))
+			elseif (!in_array($current_lang, $available_langs))
 			{
 				$this->template->assign_vars([
 					'TOPICCHECK_YOUR_LANGUAGE_MISSING'	=> true,
 				]);
 			}
 
-			$s_lang_options = '';
 			foreach ($available_langs as $iso)
 			{
-				$selected = ($iso == $selected_lang) ? ' selected="selected"' : '';
-				$s_lang_options .= '<option value="' . $iso . '"' . $selected . '>' . strtoupper($iso) . '</option>';
+				$this->template->assign_block_vars('TOPICCHECK_LANGS', [
+					'ISO'		=> $iso,
+					'NAME'		=> strtoupper($iso),
+					'SELECTED'	=> ($iso == $selected_lang),
+				]);
 			}
 
 			// Fetch words
@@ -291,7 +303,6 @@ class acp_controller
 
 			$this->template->assign_vars([
 				'U_ACTION'		 => $this->u_action,
-				'S_LANG_OPTIONS' => $s_lang_options,
 				'WORDS_LIST'	 => $current_words,
 			]);
 		}

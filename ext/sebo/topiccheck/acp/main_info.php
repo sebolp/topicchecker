@@ -27,6 +27,11 @@ class main_info
 					'auth'  => 'ext_sebo/topiccheck && acl_a_board',
 					'cat'   => ['ACP_TOPICCHECK_TITLE'],
 				],
+				'words'    => [
+					'title' => 'ACP_TOPICCHECK_WORDS',
+					'auth'  => 'ext_sebo/topiccheck && acl_a_board',
+					'cat'   => ['ACP_TOPICCHECK_TITLE'],
+				],
 			],
 		];
 	}

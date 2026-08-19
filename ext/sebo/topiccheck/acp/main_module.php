@@ -45,6 +45,8 @@ class main_module
 				$this->tpl_name = 'acp_topiccheck_words';
 				$this->page_title = 'ACP_TOPICCHECK_WORDS_TITLE';
 				break;
+			default:
+				trigger_error('NO_MODE', E_USER_ERROR);
 		}
 
 		// Make the $u_action url available in our ACP controller

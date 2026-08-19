@@ -105,6 +105,40 @@ class search
 					return new JsonResponse([]);
 				}
 
+				// Exclude password protected forums unless access was granted
+				$sql_ary = [
+					'SELECT'	=> 'f.forum_id',
+					'FROM'		=> [
+						$this->table_prefix . 'forums' => 'f',
+					],
+					'LEFT_JOIN'	=> [
+						[
+							'FROM'	=> [$this->table_prefix . 'forums_access' => 'fa'],
+							'ON'	=> 'fa.forum_id = f.forum_id
+								AND fa.session_id = \'' . $this->db->sql_escape($this->user->session_id) . '\'',
+						],
+					],
+					'WHERE'		=> $this->db->sql_in_set('f.forum_id', $readable_ids) . '
+						AND (f.forum_password = \'\' OR fa.user_id = ' . (int) $this->user->data['user_id'] . ')',
+				];
+
+				$sql = $this->db->sql_build_query('SELECT', $sql_ary);
+				$result = $this->db->sql_query($sql);
+
+				$readable_ids = [];
+
+				while ($row = $this->db->sql_fetchrow($result))
+				{
+					$readable_ids[] = (int) $row['forum_id'];
+				}
+
+				$this->db->sql_freeresult($result);
+
+				if (empty($readable_ids))
+				{
+					return new JsonResponse([]);
+				}
+
 				// B. Forums activated in DB (sebo_topiccheck_forums)
 				// Build the query using the SQL array method for phpBB DBAL
 				$sql_ary = [
@@ -175,8 +209,9 @@ class search
 
 					if (!empty($word) && mb_strlen($word) > 2)
 					{
-						$search_escaped = $this->db->sql_escape($word);
-						$where_conditions[] = "t.topic_title LIKE '%" . $search_escaped . "%'";
+						$like_safe_word = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $word);
+						$search_escaped = $this->db->sql_escape($like_safe_word);
+						$where_conditions[] = "t.topic_title LIKE '%" . $search_escaped . "%' ESCAPE '\\\\'";
 
 						// SCORING
 						$weight = 10;
@@ -184,7 +219,7 @@ class search
 						{
 							$weight = 2;
 						}
-						else if (mb_strlen($word) > 6)
+						elseif (mb_strlen($word) > 6)
 						{
 							$weight = 15;
 						}
@@ -203,6 +238,9 @@ class search
 						$order_by_sql = '(' . $sql_order_relevance . ') DESC, ' . $order_by_sql;
 					}
 
+					// Only return approved topics.
+					// TopicCheck must not disclose unapproved, reapproved,
+					// or soft-deleted topics to any user.
 					$sql_ary = [
 						'SELECT'	=> 't.topic_id, t.topic_title, t.topic_time, t.topic_last_post_time, t.forum_id, f.forum_name, f.left_id, f.right_id',
 						'FROM'		=> [
@@ -214,12 +252,32 @@ class search
 								'ON'	=> 't.forum_id = f.forum_id',
 							],
 						],
-						'WHERE'		=> '(' . $sql_where . ') AND ' . $this->db->sql_in_set('t.forum_id', $allowed_forum_ids),
+						'WHERE'		=> '(' . $sql_where . ')
+							AND ' . $this->db->sql_in_set('t.forum_id', $allowed_forum_ids) . '
+							AND t.topic_visibility = ' . ITEM_APPROVED,
 						'ORDER_BY'	=> $order_by_sql,
 					];
 
 					$sql = $this->db->sql_build_query('SELECT', $sql_ary);
 					$result = $this->db->sql_query_limit($sql, 50);
+
+					// Load the whole forum tree once (nested set) to avoid N+1 queries
+					$sql_ary_forums = [
+						'SELECT'	=> 'forum_id, forum_name, left_id, right_id',
+						'FROM'		=> [
+							$this->table_prefix . 'forums' => 'f',
+						],
+						'ORDER_BY'	=> 'left_id ASC',
+					];
+					$sql_forums = $this->db->sql_build_query('SELECT', $sql_ary_forums);
+					$result_forums = $this->db->sql_query($sql_forums);
+
+					$all_forums = [];
+					while ($forum_row = $this->db->sql_fetchrow($result_forums))
+					{
+						$all_forums[] = $forum_row;
+					}
+					$this->db->sql_freeresult($result_forums);
 
 					while ($row = $this->db->sql_fetchrow($result))
 					{
@@ -227,27 +285,18 @@ class search
 						$forum_id = (int) $row['forum_id'];
 
 						// Breadcrumbs
-						$sql_ary_parents = [
-							'SELECT'	=> 'p.forum_name',
-							'FROM'		=> [
-								$this->table_prefix . 'forums' => 'p',
-							],
-							'WHERE'		=> 'p.left_id < ' . (int) $row['left_id'] . ' AND p.right_id > ' . (int) $row['right_id'],
-							'ORDER_BY'	=> 'p.left_id ASC',
-						];
+						$breadcrumbs = [];
 
-						$sql_parents = $this->db->sql_build_query('SELECT', $sql_ary_parents);
-						$result_parents = $this->db->sql_query($sql_parents);
-
-						$breadcrumbs_html = '<i class="icon fa-home fa-fw" aria-hidden="true"></i>';
-
-						while ($parent = $this->db->sql_fetchrow($result_parents))
+						foreach ($all_forums as $forum_candidate)
 						{
-							$breadcrumbs_html .= '<span class="crumb" style="font-weight: normal;">' . $parent['forum_name'] . '</span>';
+							if ((int) $forum_candidate['left_id'] < (int) $row['left_id']
+								&& (int) $forum_candidate['right_id'] > (int) $row['right_id'])
+							{
+								$breadcrumbs[] = $forum_candidate['forum_name'];
+							}
 						}
-						$this->db->sql_freeresult($result_parents);
 
-						$breadcrumbs_html .= '<span class="crumb" style="font-weight: normal;">' . $row['forum_name'] . '</span>';
+						$breadcrumbs[] = $row['forum_name'];
 
 						// URL
 						try
@@ -271,10 +320,10 @@ class search
 						$results[] = [
 							'topic_id'    => $topic_id,
 							'title'       => $row['topic_title'],
-							'breadcrumbs' => $breadcrumbs_html,
+							'breadcrumbs' => $breadcrumbs,
 							'url'         => $url,
-							'old'			=> ((int) $row['topic_last_post_time'] < $time_threshold) ? true : false,
-							'oldtext'		=> $this->language->lang('SEBO_TOPICCHECK_OLDER_THAN_YEAR'),
+							'old'         => ((int) $row['topic_last_post_time'] < $time_threshold),
+							'oldtext'     => $this->language->lang('SEBO_TOPICCHECK_OLDER_THAN_YEAR'),
 						];
 					}
 					$this->db->sql_freeresult($result);
@@ -285,10 +334,9 @@ class search
 		}
 		catch (\Exception $e)
 		{
-			error_log('TopicCheck Search Error: ' . $e->getMessage());
 			return new JsonResponse([
 				'error' => true,
-				'message' => $this->language->lang('SEBO_TOPICCHECK_ERROR_MESSAGE') . ': ' . $e->getMessage(),
+				'message' => $this->language->lang('SEBO_TOPICCHECK_ERROR_MESSAGE'),
 			], 500);
 		}
 	}

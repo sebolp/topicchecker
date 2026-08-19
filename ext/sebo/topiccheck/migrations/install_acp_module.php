@@ -42,7 +42,7 @@ class install_acp_module extends \phpbb\db\migration\migration
 		];
 	}
 
-	public function revert_schema()
+	public function revert_data()
 	{
 		return [
 			// Remove the category (phpBB usually cleans up children automatically, but we are explicit)

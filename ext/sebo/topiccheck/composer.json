@@ -3,15 +3,15 @@
 	"type": "phpbb-extension",
 	"description": "Live search for similar topics in subject inbox in posting page to prevent duplicates.",
 	"homepage": "https://www.fiatpandaclub.org",
-	"version": "1.2.0",
-	"time": "2026-04-16",
+	"version": "1.3.0",
+	"time": "2026-08-19",
 	"license": "GPL-2.0-only",
 	"authors": [
 		{
 			"name": "sebo",
 			"email": "info@fiatpandaclub.org",
-			"homepage": "https://www.fiatpandaclub.org",
-			"role": "https://www.phpbb.com/community/memberlist.php?mode=viewprofile&u=2233051"
+			"homepage": "https://github.com/sebolp",
+			"role": "Developer"
 		}
 	],
 	"require": {
@@ -19,7 +19,7 @@
 		"phpbb/phpbb": ">=3.3.0"
 	},
 	"extra": {
-		"display-name": "Topic Duplicate Checker",
+		"display-name": "Topic Title Duplicate Checker",
 		"soft-require": {
 			"phpbb/phpbb": ">=3.3.0"
 		}
