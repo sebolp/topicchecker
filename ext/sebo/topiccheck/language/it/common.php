@@ -24,5 +24,8 @@ $lang = array_merge($lang, [
 	/* >1.0.0 */
 	'SEBO_TOPICCHECK_ERROR_MESSAGE' => 'Si è verificato un errore:',
 	/* >1.2.0 */
-	'SEBO_TOPICCHECK_OLDER_THAN_YEAR' => 'Ultimo post pubblicato più di un anno fa',
+	'SEBO_TOPICCHECK_OLDER_THAN_YEARS' => [
+		1 => 'Ultimo post pubblicato più di %d anno fa',
+		2 => 'Ultimo post pubblicato più di %d anni fa',
+	],'SEBO_TOPICCHECK_RATE_LIMITED' => 'Troppe richieste. Attendi e riprova.',
 ]);

@@ -8,6 +8,7 @@ services:
             - '@controller.helper'
             - '@user'
             - '@auth'
+            - '@cache.driver'
             - '%core.table_prefix%'
             - '%core.root_path%'
             - '%core.php_ext%'

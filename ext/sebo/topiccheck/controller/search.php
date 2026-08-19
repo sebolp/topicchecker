@@ -19,6 +19,7 @@ use phpbb\controller\helper;
 use phpbb\user;
 use phpbb\auth\auth;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use phpbb\cache\driver\driver_interface as cache_driver_interface;
 
 class search
 {
@@ -49,19 +50,23 @@ class search
 	/** @var string */
 	protected $php_ext;
 
+	/** @var cache_driver_interface */
+	protected $cache;
+
 	/**
 	 * Constructor
 	 */
 	public function __construct(
-		\phpbb\language\language $language,
-		driver_interface $db,
-		request_interface $request,
-		helper $helper,
-		user $user,
-		auth $auth,
-		string $table_prefix,
-		string $phpbb_root_path = '',
-		string $php_ext = 'php'
+	\phpbb\language\language $language,
+	driver_interface $db,
+	request_interface $request,
+	helper $helper,
+	user $user,
+	auth $auth,
+	cache_driver_interface $cache,
+	string $table_prefix,
+	string $phpbb_root_path = '',
+	string $php_ext = 'php'
 	)
 	{
 		$this->language = $language;
@@ -70,6 +75,7 @@ class search
 		$this->helper = $helper;
 		$this->user = $user;
 		$this->auth = $auth;
+		$this->cache = $cache;
 		$this->table_prefix = $table_prefix;
 		$this->phpbb_root_path = $phpbb_root_path;
 		$this->php_ext = $php_ext;
@@ -82,8 +88,35 @@ class search
 	{
 		try
 		{
-			// Load common lang file for error messages
+						// Load common lang file for error messages
 			$this->language->add_lang('common', 'sebo/topiccheck');
+
+			// Server-side rate limit, independent of the client-side debounce
+			$rate_key = '_sebo_topiccheck_rl_' . md5(
+				$this->user->data['is_registered'] ? 'u' . $this->user->data['user_id'] : 'g' . $this->user->ip
+			);
+
+			$window = 60; // seconds
+			$max_requests = $this->user->data['is_registered'] ? 30 : 10;
+			$now = time();
+
+			$rate_data = $this->cache->get($rate_key);
+
+			if ($rate_data === false || $now > $rate_data['reset'])
+			{
+				$rate_data = ['count' => 0, 'reset' => $now + $window];
+			}
+
+			$rate_data['count']++;
+			$this->cache->put($rate_key, $rate_data, $window);
+
+			if ($rate_data['count'] > $max_requests)
+			{
+				return new JsonResponse([
+					'error' => true,
+					'message' => $this->language->lang('SEBO_TOPICCHECK_RATE_LIMITED'),
+				], 429);
+			}
 
 			$search_query = $this->request->variable('q', '', true);
 			$search_query = trim((string) $search_query);
@@ -123,7 +156,7 @@ class search
 				];
 
 				$sql = $this->db->sql_build_query('SELECT', $sql_ary);
-				$result = $this->db->sql_query($sql);
+				$result = $this->db->sql_query($sql, 300);
 
 				$readable_ids = [];
 
@@ -171,7 +204,7 @@ class search
 				// ---------------------------------------------------------
 
 				$low_value_words = [];
-				$current_lang = $this->user->lang_name;
+				$current_lang = $this->user->data['user_lang'];
 
 				// Build the query to fetch the word list for the current language
 				$sql_ary = [
@@ -183,7 +216,7 @@ class search
 				];
 
 				$sql = $this->db->sql_build_query('SELECT', $sql_ary);
-				$result = $this->db->sql_query($sql);
+				$result = $this->db->sql_query($sql, 300);
 				$row = $this->db->sql_fetchrow($result);
 				$this->db->sql_freeresult($result);
 
@@ -199,7 +232,8 @@ class search
 				// 3. SEARCH & SCORING LOGIC
 				// ---------------------------------------------------------
 
-				$keywords = explode(' ', $search_query);
+				// max 10 words query
+				$keywords = array_slice(explode(' ', $search_query), 0, 10);
 				$where_conditions = [];
 				$score_cases = [];
 
@@ -209,9 +243,8 @@ class search
 
 					if (!empty($word) && mb_strlen($word) > 2)
 					{
-						$like_safe_word = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $word);
-						$search_escaped = $this->db->sql_escape($like_safe_word);
-						$where_conditions[] = "t.topic_title LIKE '%" . $search_escaped . "%' ESCAPE '\\\\'";
+						$like_expression = $this->db->get_any_char() . $word . $this->db->get_any_char();
+						$where_conditions[] = 't.topic_title ' . $this->db->sql_like_expression($like_expression);
 
 						// SCORING
 						$weight = 10;
@@ -223,7 +256,7 @@ class search
 						{
 							$weight = 15;
 						}
-						$score_cases[] = "(CASE WHEN t.topic_title LIKE '%" . $search_escaped . "%' THEN " . $weight . " ELSE 0 END)";
+						$score_cases[] = '(CASE WHEN t.topic_title ' . $this->db->sql_like_expression($like_expression) . " THEN {$weight} ELSE 0 END)";
 					}
 				}
 
@@ -232,8 +265,6 @@ class search
 
 				if (!empty($where_conditions))
 				{
-					$sql_where = implode(' OR ', $where_conditions);
-
 					$order_by_sql = 't.topic_time DESC';
 
 					if (!empty($score_cases))
@@ -241,6 +272,11 @@ class search
 						$sql_order_relevance = implode(' + ', $score_cases);
 						$order_by_sql = '(' . $sql_order_relevance . ') DESC, ' . $order_by_sql;
 					}
+
+					// Build the complete WHERE clause string outside the sql_ary
+					$sql_where_string = '(' . implode(' OR ', $where_conditions) . ')';
+					$sql_where_string .= ' AND ' . $this->db->sql_in_set('t.forum_id', $allowed_forum_ids);
+					$sql_where_string .= ' AND t.topic_visibility = ' . (int) ITEM_APPROVED;
 
 					// Only return approved topics.
 					// TopicCheck must not disclose unapproved, reapproved,
@@ -256,9 +292,7 @@ class search
 								'ON'	=> 't.forum_id = f.forum_id',
 							],
 						],
-						'WHERE'		=> '(' . $sql_where . ')
-							AND ' . $this->db->sql_in_set('t.forum_id', $allowed_forum_ids) . '
-							AND t.topic_visibility = ' . (int) ITEM_APPROVED,
+						'WHERE'		=> $sql_where_string,
 						'ORDER_BY'	=> $order_by_sql,
 					];
 
@@ -320,16 +354,29 @@ class search
 							]);
 						}
 
-						$time_threshold = time() - 31536000; // Current time minus 1 year (in seconds)
-
-						// Flag as old topic if last post time is older than 1 year
+						// Calculate the difference in seconds between now and last post
+						$diff_seconds = time() - (int) $row['topic_last_post_time'];
+						$years_old = floor($diff_seconds / 31536000);
+						
+						$is_old = false;
+						$old_text = '';
+						
+						if ($years_old >= 1)
+						{
+							$is_old = true;
+							
+							// Pass the calculated years to the language string
+							$old_text = $this->language->lang('SEBO_TOPICCHECK_OLDER_THAN_YEARS', $years_old);
+						}
+						
+						// Populate the results array
 						$results[] = [
 							'topic_id'		=> $topic_id,
 							'title'			=> $row['topic_title'],
 							'breadcrumbs'	=> $breadcrumbs,
 							'url'			=> $url,
-							'old'			=> ((int) $row['topic_last_post_time'] < $time_threshold),
-							'oldtext'		=> $this->language->lang('SEBO_TOPICCHECK_OLDER_THAN_YEAR'),
+							'old'			=> $is_old,
+							'oldtext'		=> $old_text,
 						];
 					}
 					$this->db->sql_freeresult($result);
