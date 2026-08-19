@@ -88,7 +88,7 @@ class search
 	{
 		try
 		{
-						// Load common lang file for error messages
+			// Load common lang file for error messages
 			$this->language->add_lang('common', 'sebo/topiccheck');
 
 			// Server-side rate limit, independent of the client-side debounce
@@ -357,18 +357,18 @@ class search
 						// Calculate the difference in seconds between now and last post
 						$diff_seconds = time() - (int) $row['topic_last_post_time'];
 						$years_old = floor($diff_seconds / 31536000);
-						
+
 						$is_old = false;
 						$old_text = '';
-						
+
 						if ($years_old >= 1)
 						{
 							$is_old = true;
-							
+
 							// Pass the calculated years to the language string
 							$old_text = $this->language->lang('SEBO_TOPICCHECK_OLDER_THAN_YEARS', $years_old);
 						}
-						
+
 						// Populate the results array
 						$results[] = [
 							'topic_id'		=> $topic_id,
