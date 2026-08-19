@@ -182,6 +182,8 @@
 	margin-left: 10px;
 	position: relative; /* Container must be relative for the tooltip positioning */
 	cursor: help;
+	padding: 4px;
+	border-radius: 10px;
 }
 
 /* The Tooltip Box */
@@ -225,4 +227,8 @@
 	left: 30px;
 	transform: rotate(270deg);
 	border-color: transparent transparent #333 transparent; /* Points the arrow UP */
+}
+
+.tc-badge-older .fa-spin{
+	font-size: 8px !important;
 }

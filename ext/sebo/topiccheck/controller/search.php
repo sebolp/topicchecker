@@ -227,11 +227,15 @@ class search
 					}
 				}
 
+				// Ensure forum IDs are strict integers
+				$allowed_forum_ids = array_map('intval', $allowed_forum_ids);
+
 				if (!empty($where_conditions))
 				{
 					$sql_where = implode(' OR ', $where_conditions);
 
 					$order_by_sql = 't.topic_time DESC';
+					
 					if (!empty($score_cases))
 					{
 						$sql_order_relevance = implode(' + ', $score_cases);
@@ -244,17 +248,17 @@ class search
 					$sql_ary = [
 						'SELECT'	=> 't.topic_id, t.topic_title, t.topic_time, t.topic_last_post_time, t.forum_id, f.forum_name, f.left_id, f.right_id',
 						'FROM'		=> [
-							$this->table_prefix . 'topics' => 't',
+							TOPICS_TABLE	=> 't',
 						],
-						'LEFT_JOIN'	=> [
+						'LEFT_JOIN' => [
 							[
-								'FROM'	=> [$this->table_prefix . 'forums' => 'f'],
+								'FROM'	=> [FORUMS_TABLE => 'f'],
 								'ON'	=> 't.forum_id = f.forum_id',
 							],
 						],
 						'WHERE'		=> '(' . $sql_where . ')
 							AND ' . $this->db->sql_in_set('t.forum_id', $allowed_forum_ids) . '
-							AND t.topic_visibility = ' . ITEM_APPROVED,
+							AND t.topic_visibility = ' . (int) ITEM_APPROVED,
 						'ORDER_BY'	=> $order_by_sql,
 					];
 
@@ -265,14 +269,16 @@ class search
 					$sql_ary_forums = [
 						'SELECT'	=> 'forum_id, forum_name, left_id, right_id',
 						'FROM'		=> [
-							$this->table_prefix . 'forums' => 'f',
+							FORUMS_TABLE	=> 'f',
 						],
 						'ORDER_BY'	=> 'left_id ASC',
 					];
+					
 					$sql_forums = $this->db->sql_build_query('SELECT', $sql_ary_forums);
 					$result_forums = $this->db->sql_query($sql_forums);
 
 					$all_forums = [];
+					
 					while ($forum_row = $this->db->sql_fetchrow($result_forums))
 					{
 						$all_forums[] = $forum_row;
@@ -289,8 +295,7 @@ class search
 
 						foreach ($all_forums as $forum_candidate)
 						{
-							if ((int) $forum_candidate['left_id'] < (int) $row['left_id']
-								&& (int) $forum_candidate['right_id'] > (int) $row['right_id'])
+							if ((int) $forum_candidate['left_id'] < (int) $row['left_id'] && (int) $forum_candidate['right_id'] > (int) $row['right_id'])
 							{
 								$breadcrumbs[] = $forum_candidate['forum_name'];
 							}
@@ -298,7 +303,7 @@ class search
 
 						$breadcrumbs[] = $row['forum_name'];
 
-						// URL
+						// URL route generation
 						try
 						{
 							$url = $this->helper->route('phpbb_viewtopic_route', [
@@ -308,7 +313,7 @@ class search
 						}
 						catch (\Exception $e)
 						{
-							// security Fallback
+							// Security fallback
 							$url = append_sid($this->phpbb_root_path . 'viewtopic.' . $this->php_ext, [
 								'f' => $forum_id,
 								't' => $topic_id,
@@ -316,14 +321,15 @@ class search
 						}
 
 						$time_threshold = time() - 31536000; // Current time minus 1 year (in seconds)
-						// old topic if last post time is older than 1 year
+						
+						// Flag as old topic if last post time is older than 1 year
 						$results[] = [
-							'topic_id'    => $topic_id,
-							'title'       => $row['topic_title'],
-							'breadcrumbs' => $breadcrumbs,
-							'url'         => $url,
-							'old'         => ((int) $row['topic_last_post_time'] < $time_threshold),
-							'oldtext'     => $this->language->lang('SEBO_TOPICCHECK_OLDER_THAN_YEAR'),
+							'topic_id'		=> $topic_id,
+							'title'			=> $row['topic_title'],
+							'breadcrumbs'	=> $breadcrumbs,
+							'url'			=> $url,
+							'old'			=> ((int) $row['topic_last_post_time'] < $time_threshold),
+							'oldtext'		=> $this->language->lang('SEBO_TOPICCHECK_OLDER_THAN_YEAR'),
 						];
 					}
 					$this->db->sql_freeresult($result);
