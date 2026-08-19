@@ -1,4 +1,4 @@
-# Topiccheker
+# Topic Title duplicate checker
 Check duplicated title while posting a new topic
 Prevent duplicate topics while a new post is written. It displays a few arguments while writing down the subject of the topic.
 
