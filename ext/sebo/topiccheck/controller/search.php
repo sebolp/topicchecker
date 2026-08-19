@@ -235,7 +235,7 @@ class search
 					$sql_where = implode(' OR ', $where_conditions);
 
 					$order_by_sql = 't.topic_time DESC';
-					
+
 					if (!empty($score_cases))
 					{
 						$sql_order_relevance = implode(' + ', $score_cases);
@@ -273,12 +273,12 @@ class search
 						],
 						'ORDER_BY'	=> 'left_id ASC',
 					];
-					
+
 					$sql_forums = $this->db->sql_build_query('SELECT', $sql_ary_forums);
 					$result_forums = $this->db->sql_query($sql_forums);
 
 					$all_forums = [];
-					
+
 					while ($forum_row = $this->db->sql_fetchrow($result_forums))
 					{
 						$all_forums[] = $forum_row;
@@ -321,7 +321,7 @@ class search
 						}
 
 						$time_threshold = time() - 31536000; // Current time minus 1 year (in seconds)
-						
+
 						// Flag as old topic if last post time is older than 1 year
 						$results[] = [
 							'topic_id'		=> $topic_id,
