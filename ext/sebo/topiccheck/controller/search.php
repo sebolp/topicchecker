@@ -219,7 +219,7 @@ class search
 						{
 							$weight = 2;
 						}
-						elseif (mb_strlen($word) > 6)
+						else if (mb_strlen($word) > 6)
 						{
 							$weight = 15;
 						}

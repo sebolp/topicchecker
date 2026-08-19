@@ -129,7 +129,7 @@ class acp_controller
 		// ---------------------------------------------------------------------
 		// MODE: WORDS
 		// ---------------------------------------------------------------------
-		elseif ($mode == 'words')
+		else if ($mode == 'words')
 		{
 			// 1. Generate the form key (shared for both forms on this page)
 			add_form_key('acp_topiccheck_words');
@@ -266,7 +266,7 @@ class acp_controller
 				]);
 			}
 			// Check if the user's current language is not in the available list
-			elseif (!in_array($current_lang, $available_langs))
+			else if (!in_array($current_lang, $available_langs))
 			{
 				$this->template->assign_vars([
 					'TOPICCHECK_YOUR_LANGUAGE_MISSING'	=> true,
